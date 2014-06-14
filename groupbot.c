@@ -187,11 +187,12 @@ static void on_friend_request(Tox *tox, const uint8_t *public_key, const uint8_t
 }
 
 static bool load(Tox *tox) {
-	int file;
+	int file = -1;
 	size_t nread = 0;
 	ssize_t tmp;
 	struct stat st;
 	uint8_t *buf = NULL;
+	bool rv = true;
 
 	file = open(GROUPFILE, O_RDONLY);
 	if (file == -1) {
@@ -200,12 +201,12 @@ static bool load(Tox *tox) {
 	}
 	if (fstat(file, &st) == -1) {
 		info("WARN: Can't stat %s\n", GROUPFILE);
-		return false;
+		goto error;
 	}
 	buf = malloc((size_t)st.st_size);
 	if (!buf) {
 		info("WARN: OOM\n");
-		return false;
+		goto error;
 	}
 	while (nread < (size_t)st.st_size) {
 		if ((tmp = read(file, buf+nread, (size_t)st.st_size - nread)) == -1) {
@@ -222,29 +223,31 @@ static bool load(Tox *tox) {
 		goto error;
 	}
 
-	free(buf);
-	return true;
+	goto exit;
 error:
+	rv = false;
+exit:
+	close(file);
 	free(buf);
-	return false;
+	return rv;
 }
 
 static void save(Tox *tox) {
 	size_t size, written = 0;
 	ssize_t tmp;
 	uint8_t *buf = NULL;
-	int file;
+	int file = -1;
 
 	info("INFO: Saving\n");
 
 	size = tox_size(tox);
 	if (size == 0) {
-		return;
+		goto exit;
 	}
 	buf = malloc(size);
 	if (!buf) {
 		info("WARN: OOM\n");
-		return;
+		goto exit;
 	}
 	tox_save(tox, buf);
 	file = open(GROUPFILE_TMP, O_WRONLY|O_CREAT, 0600);
@@ -259,11 +262,17 @@ static void save(Tox *tox) {
 		}
 		written += (size_t)tmp;
 	}
-	close(file);
+	if (fsync(file) == -1) {
+		info("WARN: Couldn't sync %s\n", GROUPFILE_TMP);
+		goto exit;
+	}
 	if (rename(GROUPFILE_TMP, GROUPFILE) == -1) {
 		info("WARN: Error renaming %s\n", GROUPFILE_TMP);
+		goto exit;
 	}
+
 exit:
+	close(file);
 	free(buf);
 }
 
