@@ -4,6 +4,7 @@
 
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdnoreturn.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,7 +38,7 @@ static const char *GROUPFILE = "groupbot.data";
 static const char *GROUPFILE_TMP = "groupbot.data.tmp";
 
 __attribute__((__format__ (__printf__, 1, 2)))
-static _Noreturn void error(const char *fmt, ...) {
+static noreturn void error(const char *fmt, ...) {
 	va_list ap;
 
 	va_start(ap, fmt);
